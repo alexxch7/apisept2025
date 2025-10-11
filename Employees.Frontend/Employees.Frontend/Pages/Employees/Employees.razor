@@ -1,0 +1,106 @@
+﻿@page "/employees"
+@using MudBlazor
+@using System.Text.Json
+
+<MudPaper Class="p-4">
+    <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Class="mb-3">
+        <MudTextField @bind-Value="filter"
+                      @bind-Value:event="oninput"
+                      Label="Buscar (nombre o apellido)"
+                      Immediate="true" />
+        <MudButton OnClick="Search" Variant="Variant.Filled">BUSCAR</MudButton>
+    </MudStack>
+
+    <MudTable T="global::Employees.Shared.Entities.Employee"
+              @ref="table"
+              @key="tableKey"
+              ServerData="LoadServerData"
+              RowsPerPage="recordsPerPage"
+              RowsPerPageOptions="new int[]{10,20,50}"
+              Bordered="true"
+              Hover="true">
+        <HeaderContent>
+            <MudTh>Nombre</MudTh>
+            <MudTh>Apellido</MudTh>
+            <MudTh>Activo</MudTh>
+            <MudTh>Fecha Ingreso</MudTh>
+            <MudTh>Salario</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.FirstName</MudTd>
+            <MudTd>@context.LastName</MudTd>
+            <MudTd>@(context.IsActive ? "Sí" : "No")</MudTd>
+            <MudTd>@(context.HireDate?.ToString("yyyy-MM-dd"))</MudTd>
+            <MudTd>@context.Salary.ToString("C0")</MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <MudText Class="p-4">Sin resultados o error al cargar datos.</MudText>
+        </NoRecordsContent>
+    </MudTable>
+</MudPaper>
+
+@code {
+    [Inject] HttpClient Http { get; set; } = default!;
+
+    private MudTable<global::Employees.Shared.Entities.Employee>? table;
+    private string? filter;
+    private int recordsPerPage = 10;
+    private string tableKey = Guid.NewGuid().ToString();
+
+    private static readonly JsonSerializerOptions JsonOpts = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
+
+    private async Task<MudBlazor.TableData<global::Employees.Shared.Entities.Employee>> LoadServerData(MudBlazor.TableState state, CancellationToken ct)
+    {
+        try
+        {
+            int page = state.Page + 1;
+            var f = (filter ?? string.Empty).Trim();
+            var ts = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
+            var listUrl = string.IsNullOrEmpty(f)
+                ? $"https://localhost:7037/api/Employees/paginated?Page={page}&RecordsNumber={recordsPerPage}&_ts={ts}"
+                : $"https://localhost:7037/api/Employees/paginated?Page={page}&RecordsNumber={recordsPerPage}&Filter={Uri.EscapeDataString(f)}&_ts={ts}";
+
+            var countUrl = string.IsNullOrEmpty(f)
+                ? $"https://localhost:7037/api/Employees/totalRecords?_ts={ts}"
+                : $"https://localhost:7037/api/Employees/totalRecords?Filter={Uri.EscapeDataString(f)}&_ts={ts}";
+
+            using var listResp = await Http.GetAsync(listUrl, ct);
+            using var countResp = await Http.GetAsync(countUrl, ct);
+
+            var listJson = await listResp.Content.ReadAsStringAsync(ct);
+            var totalText = await countResp.Content.ReadAsStringAsync(ct);
+
+            var items = listResp.IsSuccessStatusCode && !string.IsNullOrWhiteSpace(listJson)
+                ? (JsonSerializer.Deserialize<List<global::Employees.Shared.Entities.Employee>>(listJson, JsonOpts) ?? new())
+                : new();
+
+            _ = int.TryParse(totalText, out var total);
+
+            return new MudBlazor.TableData<global::Employees.Shared.Entities.Employee>
+            {
+                Items = items,
+                TotalItems = total
+            };
+        }
+        catch
+        {
+            return new MudBlazor.TableData<global::Employees.Shared.Entities.Employee>
+            {
+                Items = Array.Empty<global::Employees.Shared.Entities.Employee>(),
+                TotalItems = 0
+            };
+        }
+    }
+
+    private Task Search()
+    {
+        filter = filter?.Trim();
+        tableKey = Guid.NewGuid().ToString();  
+        StateHasChanged();                    
+        return Task.CompletedTask;
+    }
+}
