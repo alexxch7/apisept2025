@@ -1,85 +1,72 @@
-﻿
-    using Employees.Backend.Data;
-    using Employees.Backend.Repositories.Interfaces;
-    using Employees.Shared.Responses;
-    using Microsoft.EntityFrameworkCore;
+﻿using Employees.Backend.Data;
+using Employees.Backend.Helpers;
+using Employees.Backend.Repositories.Interfaces;
+using Employees.Shared.DTOs;
+using Employees.Shared.Responses;
+using Microsoft.EntityFrameworkCore;
 
-namespace Employees.Backend.Repositories.Implementations;
-
+namespace Employees.Backend.Repositories.Implementations
+{
     public class GenericRepository<T> : IGenericRepository<T> where T : class
     {
-        private readonly DataContext _context;
-        protected readonly DbSet<T> _entity;
+        protected readonly DataContext _context;
 
         public GenericRepository(DataContext context)
         {
             _context = context;
-            _entity = context.Set<T>();
         }
 
         public virtual async Task<ActionResponse<IEnumerable<T>>> GetAsync()
-            => new() { WasSuccess = true, Result = await _entity.ToListAsync() };
+        {
+            var list = await _context.Set<T>().AsNoTracking().ToListAsync();
+            return new ActionResponse<IEnumerable<T>> { WasSuccess = true, Result = list };
+        }
 
         public virtual async Task<ActionResponse<T>> GetAsync(int id)
         {
-            var row = await _entity.FindAsync(id);
-            return row is null
-                ? new() { WasSuccess = false, Message = "Record not found" }
-                : new() { WasSuccess = true, Result = row };
+            var entity = await _context.Set<T>().FindAsync(id);
+            return entity is null
+                ? new ActionResponse<T> { WasSuccess = false, Message = "Not found" }
+                : new ActionResponse<T> { WasSuccess = true, Result = entity };
         }
 
-        public virtual async Task<ActionResponse<T>> AddAsync(T entity)
+        public virtual async Task<ActionResponse<T>> AddAsync(T model)
         {
-            _context.Add(entity);
-            try
-            {
-                await _context.SaveChangesAsync();
-                return new() { WasSuccess = true, Result = entity };
-            }
-            catch (DbUpdateException)
-            {
-                return new() { WasSuccess = false, Message = "Duplicate or constraint error" };
-            }
-            catch (Exception ex)
-            {
-                return new() { WasSuccess = false, Message = ex.Message };
-            }
+            _context.Set<T>().Add(model);
+            await _context.SaveChangesAsync();
+            return new ActionResponse<T> { WasSuccess = true, Result = model };
         }
 
-        public virtual async Task<ActionResponse<T>> UpdateAsync(T entity)
+        public virtual async Task<ActionResponse<T>> UpdateAsync(T model)
         {
-            try
-            {
-                _context.Update(entity);
-                await _context.SaveChangesAsync();
-                return new() { WasSuccess = true, Result = entity };
-            }
-            catch (DbUpdateException)
-            {
-                return new() { WasSuccess = false, Message = "Conflict updating record" };
-            }
-            catch (Exception ex)
-            {
-                return new() { WasSuccess = false, Message = ex.Message };
-            }
+            _context.Update(model);
+            await _context.SaveChangesAsync();
+            return new ActionResponse<T> { WasSuccess = true, Result = model };
         }
 
         public virtual async Task<ActionResponse<T>> DeleteAsync(int id)
         {
-            var row = await _entity.FindAsync(id);
-            if (row is null) return new() { WasSuccess = false, Message = "Record not found" };
+            var entity = await _context.Set<T>().FindAsync(id);
+            if (entity is null)
+                return new ActionResponse<T> { WasSuccess = false, Message = "Not found" };
 
-            try
-            {
-                _entity.Remove(row);
-                await _context.SaveChangesAsync();
-                return new() { WasSuccess = true };
-            }
-            catch
-            {
-                return new() { WasSuccess = false, Message = "Cannot delete due to related data" };
-            }
+            _context.Remove(entity);
+            await _context.SaveChangesAsync();
+            return new ActionResponse<T> { WasSuccess = true };
+        }
+
+        public virtual async Task<ActionResponse<IEnumerable<T>>> GetAsync(PaginationDTO pagination)
+        {
+            var query = _context.Set<T>().AsQueryable();
+            var list = await query.Paginate(pagination).AsNoTracking().ToListAsync();
+            return new ActionResponse<IEnumerable<T>> { WasSuccess = true, Result = list };
+        }
+
+        public virtual async Task<ActionResponse<int>> GetTotalRecordsAsync(PaginationDTO pagination)
+        {
+            var query = _context.Set<T>().AsQueryable();
+            var count = await query.CountAsync();
+            return new ActionResponse<int> { WasSuccess = true, Result = count };
         }
     }
-
-
+}

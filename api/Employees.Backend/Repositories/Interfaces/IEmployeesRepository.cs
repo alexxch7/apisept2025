@@ -1,11 +1,10 @@
-﻿
+﻿using Employees.Shared.Entities;
+using Employees.Shared.Responses;
 
-    using Employees.Shared.Entities;
-    using Employees.Shared.Responses;
-    namespace Employees.Backend.Repositories.Interfaces;
+namespace Employees.Backend.Repositories.Interfaces
+{
     public interface IEmployeesRepository : IGenericRepository<Employee>
     {
-        Task<ActionResponse<IEnumerable<Employee>>> SearchByNameAsync(string term); 
+        Task<ActionResponse<IEnumerable<Employee>>> SearchByNameAsync(string term);
     }
-
-
+}
