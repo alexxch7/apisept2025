@@ -17,7 +17,6 @@ namespace Employees.Backend.Controllers
             _context = context;
         }
 
-        // Ciudades por Estado
         [HttpGet("byState/{stateId:int}")]
         public async Task<IActionResult> GetByStateAsync(int stateId)
         {

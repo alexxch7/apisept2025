@@ -17,7 +17,6 @@ namespace Employees.Backend.Controllers
             _context = context;
         }
 
-        // Países con Estados y Ciudades
         [HttpGet("full")]
         public async Task<IActionResult> GetFullAsync()
         {

@@ -17,7 +17,6 @@ namespace Employees.Backend.Controllers
             _context = context;
         }
 
-        // Estados por País
         [HttpGet("byCountry/{countryId:int}")]
         public async Task<IActionResult> GetByCountryAsync(int countryId)
         {
