@@ -1,12 +1,14 @@
 ﻿using Employees.Backend.UnitsOfWork.Interfaces;
 using Employees.Shared.DTOs;
 using Employees.Shared.Entities;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Employees.Backend.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class EmployeesController : GenericController<Employee>
     {
         private readonly IEmployeesUnitOfWork _uow;
@@ -17,6 +19,7 @@ namespace Employees.Backend.Controllers
         }
 
         [HttpGet("search")]
+        [AllowAnonymous]
         public async Task<IActionResult> Search([FromQuery] string term)
         {
             var resp = await _uow.SearchByNameAsync(term);

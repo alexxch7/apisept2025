@@ -1,6 +1,7 @@
 ﻿using Employees.Shared.Entities;
 using Microsoft.EntityFrameworkCore;
 
+
 namespace Employees.Backend.Data
 {
     public class SeedDb
@@ -15,7 +16,28 @@ namespace Employees.Backend.Data
         public async Task SeedAsync()
         {
             await _context.Database.MigrateAsync();
+            await SeedGeoAsync();
             await TopUpEmployeesAsync();
+            await _context.SaveChangesAsync();
+        }
+
+        private async Task SeedGeoAsync()
+        {
+            if (await _context.Countries.AnyAsync())
+                return;
+
+            var colombia = new Countries { Name = "Colombia" };
+            var antioquia = new State { Name = "Antioquia", Country = colombia };
+            var cundinamarca = new State { Name = "Cundinamarca", Country = colombia };
+
+            var medellin = new City { Name = "Medellín", State = antioquia };
+            var envigado = new City { Name = "Envigado", State = antioquia };
+            var bogota = new City { Name = "Bogotá", State = cundinamarca };
+
+            _context.Countries.Add(colombia);
+            _context.States.AddRange(antioquia, cundinamarca);
+            _context.Cities.AddRange(medellin, envigado, bogota);
+
             await _context.SaveChangesAsync();
         }
 
