@@ -1,2 +1,3 @@
-# apisept2025
-Taller #1 - API básica
+# apisept - oct - nov 2025
+Talleres Aplicación y Servicios WEB.
+Taller 1 - 2 - 3
