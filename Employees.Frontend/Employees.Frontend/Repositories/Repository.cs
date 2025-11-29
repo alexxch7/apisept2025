@@ -1,27 +1,80 @@
-﻿using System.Net.Http.Json;
+﻿using System.Net.Http;
+using System.Net.Http.Json;
 
 namespace Employees.Frontend.Repositories
 {
     public class Repository : IRepository
     {
-        private readonly HttpClient _http;
-        public Repository(HttpClient http) => _http = http;
+        private readonly IHttpClientFactory _clientFactory;
+
+        public Repository(IHttpClientFactory clientFactory)
+        {
+            _clientFactory = clientFactory;
+        }
+
+        private HttpClient GetClient()
+        {
+            return _clientFactory.CreateClient("api-auth");
+        }
 
         public async Task<Response<T>> GetAsync<T>(string url)
         {
-            var httpResp = await _http.GetAsync(url);
-            if (!httpResp.IsSuccessStatusCode)
-                return new Response<T> { Error = true, HttpResponseMessage = httpResp };
+            var client = GetClient();
+            var httpResponse = await client.GetAsync(url);
 
-            var data = await httpResp.Content.ReadFromJsonAsync<T>();
-            return new Response<T> { Error = false, Result = data, HttpResponseMessage = httpResp };
+            if (!httpResponse.IsSuccessStatusCode)
+            {
+                return new Response<T>
+                {
+                    Error = true,
+                    HttpResponseMessage = httpResponse
+                };
+            }
+
+            var result = await httpResponse.Content.ReadFromJsonAsync<T>();
+            return new Response<T> { Result = result };
         }
 
-        public async Task<Response<string>> GetStringAsync(string url)
+        public async Task<Response<TResponse>> PostAsync<TRequest, TResponse>(string url, TRequest model)
         {
-            var httpResp = await _http.GetAsync(url);
-            var text = await httpResp.Content.ReadAsStringAsync();
-            return new Response<string> { Error = !httpResp.IsSuccessStatusCode, Result = text, HttpResponseMessage = httpResp };
+            var client = GetClient();
+            var httpResponse = await client.PostAsJsonAsync(url, model);
+
+            if (!httpResponse.IsSuccessStatusCode)
+            {
+                return new Response<TResponse>
+                {
+                    Error = true,
+                    HttpResponseMessage = httpResponse
+                };
+            }
+
+            var result = await httpResponse.Content.ReadFromJsonAsync<TResponse>();
+            return new Response<TResponse> { Result = result };
+        }
+
+        public async Task<Response<string>> PutAsync<TRequest>(string url, TRequest model)
+        {
+            var client = GetClient();
+            var httpResponse = await client.PutAsJsonAsync(url, model);
+
+            return new Response<string>
+            {
+                Error = !httpResponse.IsSuccessStatusCode,
+                HttpResponseMessage = httpResponse
+            };
+        }
+
+        public async Task<Response<string>> DeleteAsync(string url)
+        {
+            var client = GetClient();
+            var httpResponse = await client.DeleteAsync(url);
+
+            return new Response<string>
+            {
+                Error = !httpResponse.IsSuccessStatusCode,
+                HttpResponseMessage = httpResponse
+            };
         }
     }
 }

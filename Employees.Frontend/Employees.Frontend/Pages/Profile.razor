@@ -1,0 +1,113 @@
+﻿@page "/profile"
+@using global::Employees.Frontend.Repositories
+@inject IRepository Repository
+@inject NavigationManager NavigationManager
+
+<h3>Perfil de usuario</h3>
+
+@if (_loading)
+{
+    <p>Cargando...</p>
+}
+else if (_model is null)
+{
+    <p>No se pudo cargar el perfil.</p>
+}
+else
+{
+    @if (!string.IsNullOrEmpty(_message))
+    {
+        <p class="@_messageCss">@_message</p>
+    }
+
+    <EditForm Model="_model" OnValidSubmit="SaveAsync">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div class="mb-3">
+            @if (!string.IsNullOrEmpty(_model.Photo))
+            {
+                <img src="@_model.Photo" style="max-width:150px;max-height:150px;border-radius:50%;" />
+            }
+            else
+            {
+                <p>Sin foto</p>
+            }
+        </div>
+
+        <div class="mb-3">
+            <label>Cambiar foto</label>
+            <InputFile OnChange="OnFileSelected" />
+        </div>
+
+        <div class="mb-3">
+            <label>Email</label>
+            <InputText class="form-control" @bind-Value="_model.Email" />
+        </div>
+
+        <button type="submit" class="btn btn-primary">Guardar cambios</button>
+    </EditForm>
+}
+
+@code {
+    private global::Employees.Shared.DTOs.UserDTO? _model;
+    private bool _loading = true;
+
+    private string? _message;
+    private string _messageCss = "text-danger";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var resp = await Repository.GetAsync<global::Employees.Shared.DTOs.UserDTO>(
+            "api/accounts/profile");
+
+        if (!resp.Error && resp.Result is not null)
+        {
+            _model = resp.Result;
+        }
+
+        _loading = false;
+    }
+
+    private async Task OnFileSelected(InputFileChangeEventArgs e)
+    {
+        if (_model is null)
+        {
+            return;
+        }
+
+        var file = e.File;
+        if (file is null)
+        {
+            return;
+        }
+
+        using var ms = new MemoryStream();
+        await file.OpenReadStream(1024 * 1024 * 4).CopyToAsync(ms);
+        var bytes = ms.ToArray();
+        var base64 = Convert.ToBase64String(bytes);
+        _model.Photo = $"data:{file.ContentType};base64,{base64}";
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_model is null)
+        {
+            return;
+        }
+
+        var resp = await Repository.PutAsync<
+            global::Employees.Shared.DTOs.UserDTO>(
+            "api/accounts/profile", _model);
+
+        if (resp.Error)
+        {
+            _messageCss = "text-danger";
+            _message = "No se pudieron guardar los cambios.";
+            return;
+        }
+
+        _messageCss = "text-success";
+        _message = "Perfil actualizado correctamente.";
+    }
+}

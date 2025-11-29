@@ -26,9 +26,27 @@ namespace Employees.Backend.Services
 
         public async Task<(string token, DateTime expires)> BuildTokenAsync(ApplicationUser user)
         {
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]!));
-            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-            var expires = DateTime.UtcNow.AddMinutes(int.Parse(_config["Jwt:ExpiresMinutes"]!));
+
+            var issuer = _config["Jwt:Issuer"]
+                           ?? throw new InvalidOperationException("Missing config: Jwt:Issuer");
+            var audience = _config["Jwt:Audience"]
+                           ?? throw new InvalidOperationException("Missing config: Jwt:Audience");
+
+            var rawKey = _config["Jwt:Key"]
+                         ?? throw new InvalidOperationException("Missing config: Jwt:Key");
+            var keyBytes = Encoding.UTF8.GetBytes(rawKey);
+
+
+            if (keyBytes.Length < 32)
+                throw new InvalidOperationException("Jwt:Key must be at least 32 bytes for HS256.");
+
+            var minutesStr = _config["Jwt:ExpiresMinutes"];
+            var minutes = int.TryParse(minutesStr, out var m) ? m : 240; // fallback si no está
+
+            var securityKey = new SymmetricSecurityKey(keyBytes);
+            var creds = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
+            var expires = DateTime.UtcNow.AddMinutes(minutes);
+
 
             var claims = new List<Claim>
             {
@@ -43,13 +61,14 @@ namespace Employees.Backend.Services
                 claims.Add(new Claim(ClaimTypes.Role, role));
 
             var token = new JwtSecurityToken(
-                issuer: _config["Jwt:Issuer"],
-                audience: _config["Jwt:Audience"],
+                issuer: issuer,
+                audience: audience,
                 claims: claims,
                 expires: expires,
                 signingCredentials: creds);
 
-            return (new JwtSecurityTokenHandler().WriteToken(token), expires);
+            var tokenStr = new JwtSecurityTokenHandler().WriteToken(token);
+            return (tokenStr, expires);
         }
     }
 }

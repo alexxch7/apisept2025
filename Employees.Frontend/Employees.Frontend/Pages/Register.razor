@@ -1,0 +1,110 @@
+﻿@page "/register"
+@using global::Employees.Frontend.Repositories
+@inject IRepository Repository
+@inject NavigationManager NavigationManager
+
+
+<h3>Registro de usuario</h3>
+
+
+@if (!string.IsNullOrEmpty(_message))
+{
+    <p class="@_messageCss">@_message</p>
+}
+
+<EditForm Model="_model" OnValidSubmit="RegisterAsync">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div class="mb-3">
+        <label>Email</label>
+        <InputText class="form-control" @bind-Value="_model.Email" type="email" />
+    </div>
+
+    <div class="mb-3">
+        <label>Contraseña</label>
+        <InputText class="form-control" @bind-Value="_password" type="password" />
+    </div>
+
+    <div class="mb-3">
+        <label>Confirmar contraseña</label>
+        <InputText class="form-control" @bind-Value="_passwordConfirm" type="password" />
+    </div>
+
+    <div class="mb-3">
+        <label>Foto de perfil</label>
+        <InputFile OnChange="OnFileSelected" />
+        @if (!string.IsNullOrEmpty(_model.Photo))
+        {
+            <div class="mt-2">
+                <img src="@_model.Photo" style="max-width:150px;max-height:150px;border-radius:50%;" />
+            </div>
+        }
+    </div>
+
+    <button type="submit" class="btn btn-primary">Crear cuenta</button>
+</EditForm>
+
+@code {
+    private global::Employees.Shared.DTOs.UserRegisterDTO _model = new();
+    private string _password = string.Empty;
+    private string _passwordConfirm = string.Empty;
+
+    private string? _message;
+    private string _messageCss = "text-danger";
+
+    private async Task OnFileSelected(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file is null)
+        {
+            _model.Photo = null;
+            return;
+        }
+
+        using var ms = new MemoryStream();
+        await file.OpenReadStream(1024 * 1024 * 4).CopyToAsync(ms); // 4 MB
+        var bytes = ms.ToArray();
+        var base64 = Convert.ToBase64String(bytes);
+        _model.Photo = $"data:{file.ContentType};base64,{base64}";
+    }
+
+    private async Task RegisterAsync()
+    {
+        _message = null;
+
+        if (string.IsNullOrWhiteSpace(_password) || string.IsNullOrWhiteSpace(_passwordConfirm))
+        {
+            _messageCss = "text-danger";
+            _message = "Debes ingresar y confirmar la contraseña.";
+            return;
+        }
+
+        if (_password != _passwordConfirm)
+        {
+            _messageCss = "text-danger";
+            _message = "La confirmación de la contraseña no coincide.";
+            return;
+        }
+
+        _model.Password = _password;
+
+        var response = await Repository.PostAsync<
+            global::Employees.Shared.DTOs.UserRegisterDTO,
+            string>("api/accounts/register", _model);
+
+        if (response.Error)
+        {
+            var status = response.HttpResponseMessage?.StatusCode.ToString() ?? "desconocido";
+            _messageCss = "text-danger";
+            _message = $"No se pudo crear la cuenta. Código: {status}.";
+            return;
+        }
+
+        _messageCss = "text-success";
+        _message = "Cuenta creada correctamente. Redirigiendo al login...";
+
+        await Task.Delay(1500);
+        NavigationManager.NavigateTo("/login");
+    }
+}

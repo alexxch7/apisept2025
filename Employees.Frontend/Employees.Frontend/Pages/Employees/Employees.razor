@@ -1,0 +1,217 @@
+﻿@page "/employees"
+@using global::Employees.Frontend.Repositories
+@inject IRepository Repository
+@inject global::Employees.Frontend.Services.TokenService TokenService
+
+<h3>Empleados</h3>
+
+@if (string.IsNullOrWhiteSpace(TokenService.Token))
+{
+    <p class="text-danger">Debes iniciar sesión para ver y administrar los empleados.</p>
+}
+else if (_loading)
+{
+    <p>Cargando empleados...</p>
+}
+else if (!string.IsNullOrEmpty(_error))
+{
+    <p class="text-danger">@_error</p>
+}
+else
+{
+    <button class="btn btn-primary mb-3" @onclick="NewEmployee">
+        Nuevo empleado
+    </button>
+
+    @if (_employees.Count == 0)
+    {
+        <p>No hay empleados registrados.</p>
+    }
+    else
+    {
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Documento</th>
+                    <th>Nombres</th>
+                    <th>Apellidos</th>
+                    <th>Email</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var e in _employees)
+                {
+                    <tr>
+                        <td>@e.Document</td>
+                        <td>@e.FirstName</td>
+                        <td>@e.LastName</td>
+                        <td>@e.Email</td>
+                        <td>
+                            <button class="btn btn-warning btn-sm me-1" @onclick="() => EditEmployee(e)">Editar</button>
+                            <button class="btn btn-danger btn-sm" @onclick="() => DeleteEmployee(e.Id)">Eliminar</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+
+    <hr />
+
+    <h4>@(_editing ? "Editar empleado" : "Nuevo empleado")</h4>
+
+    <EditForm Model="_current" OnValidSubmit="SaveEmployee">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div class="mb-3">
+            <label>Documento</label>
+            <InputText class="form-control" @bind-Value="_current.Document" />
+        </div>
+
+        <div class="mb-3">
+            <label>Nombres</label>
+            <InputText class="form-control" @bind-Value="_current.FirstName" />
+        </div>
+
+        <div class="mb-3">
+            <label>Apellidos</label>
+            <InputText class="form-control" @bind-Value="_current.LastName" />
+        </div>
+
+        <div class="mb-3">
+            <label>Email</label>
+            <InputText class="form-control" @bind-Value="_current.Email" />
+        </div>
+
+        <button type="submit" class="btn btn-success me-2">Guardar</button>
+        <button type="button" class="btn btn-secondary" @onclick="Cancel">Cancelar</button>
+    </EditForm>
+
+    @if (!string.IsNullOrEmpty(_formError))
+    {
+        <p class="text-danger mt-2">@_formError</p>
+    }
+}
+
+@code {
+    private bool _loading = true;
+    private bool _editing = false;
+    private string? _error;
+    private string? _formError;
+
+    private List<EmployeeModel> _employees = new();
+    private EmployeeModel _current = new();
+
+    private class EmployeeModel
+    {
+        public int Id { get; set; }
+        public string Document { get; set; } = string.Empty;
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(TokenService.Token))
+            await LoadEmployees();
+    }
+
+    private async Task LoadEmployees()
+    {
+        _loading = true;
+
+        var response = await Repository.GetAsync<List<EmployeeModel>>("api/employees");
+
+        if (response.Error)
+        {
+            _error = "No se pudieron cargar los empleados.";
+            _loading = false;
+            return;
+        }
+
+        _employees = response.Result ?? new List<EmployeeModel>();
+        _loading = false;
+    }
+
+    private void NewEmployee()
+    {
+        _current = new EmployeeModel();
+        _editing = false;
+        _formError = null;
+    }
+
+    private void EditEmployee(EmployeeModel e)
+    {
+        _current = new EmployeeModel
+        {
+            Id = e.Id,
+            Document = e.Document,
+            FirstName = e.FirstName,
+            LastName = e.LastName,
+            Email = e.Email
+        };
+
+        _editing = true;
+        _formError = null;
+    }
+
+    private void Cancel()
+    {
+        _current = new EmployeeModel();
+        _editing = false;
+        _formError = null;
+    }
+
+    private async Task SaveEmployee()
+    {
+        _formError = null;
+
+        if (string.IsNullOrWhiteSpace(_current.Document) ||
+            string.IsNullOrWhiteSpace(_current.FirstName) ||
+            string.IsNullOrWhiteSpace(_current.LastName))
+        {
+            _formError = "Todos los campos son obligatorios.";
+            return;
+        }
+
+        if (_editing)
+        {
+            var response = await Repository.PutAsync($"api/employees/{_current.Id}", _current);
+
+            if (response.Error)
+            {
+                _formError = "Error actualizando el empleado.";
+                return;
+            }
+        }
+        else
+        {
+            var response = await Repository.PostAsync<EmployeeModel, EmployeeModel>("api/employees", _current);
+
+            if (response.Error)
+            {
+                _formError = "Error creando el empleado.";
+                return;
+            }
+        }
+
+        await LoadEmployees();
+        Cancel();
+    }
+
+    private async Task DeleteEmployee(int id)
+    {
+        var response = await Repository.DeleteAsync($"api/employees/{id}");
+
+        if (response.Error)
+        {
+            _formError = "Error eliminando el empleado.";
+            return;
+        }
+
+        await LoadEmployees();
+    }
+}

@@ -1,0 +1,13 @@
+﻿@page "/logout"
+@inject global::Employees.Frontend.Services.TokenService TokenService
+@inject NavigationManager NavigationManager
+
+<h3>Cerrando sesión...</h3>
+
+@code {
+    protected override void OnInitialized()
+    {
+        TokenService.ClearToken();
+        NavigationManager.NavigateTo("/login", true);
+    }
+}

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using MudBlazor.Services;
+using Employees.Frontend.Repositories;
 using Employees.Frontend.Services;
 using System.Net.Http.Headers;
 
@@ -28,6 +29,7 @@ builder.Services.AddHttpClient("api-auth", c =>
 }).AddHttpMessageHandler<AuthHeaderHandler>();
 
 builder.Services.AddSingleton<TokenService>();
+builder.Services.AddScoped<IRepository, Repository>();
 
 var app = builder.Build();
 

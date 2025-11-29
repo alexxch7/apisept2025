@@ -1,8 +1,18 @@
-﻿namespace Employees.Shared.DTOs
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace Employees.Shared.DTOs
 {
     public class LoginDTO
     {
-        public string Email { get; set; } = string.Empty;
-        public string Password { get; set; } = string.Empty;
+        [Display(Name = "Email")]
+        [Required]
+        [EmailAddress]
+        public string Email { get; set; } = null!;
+
+        [DataType(DataType.Password)]
+        [Display(Name = "Contraseña")]
+        [StringLength(20, MinimumLength = 6)]
+        [Required]
+        public string Password { get; set; } = null!;
     }
 }

@@ -1,12 +1,8 @@
-﻿using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
-using Employees.Backend.Entities;
+﻿using Employees.Backend.Entities;
+using Employees.Backend.Services;
 using Employees.Shared.DTOs;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.IdentityModel.Tokens;
 
 namespace Employees.Backend.Controllers
 {
@@ -15,54 +11,57 @@ namespace Employees.Backend.Controllers
     public class UsersController : ControllerBase
     {
         private readonly UserManager<ApplicationUser> _userManager;
-        private readonly IConfiguration _configuration;
+        private readonly SignInManager<ApplicationUser> _signInManager;
+        private readonly IJwtService _jwt;
 
-        public UsersController(UserManager<ApplicationUser> userManager, IConfiguration configuration)
+        public UsersController(
+            UserManager<ApplicationUser> userManager,
+            SignInManager<ApplicationUser> signInManager,
+            IJwtService jwt)
         {
             _userManager = userManager;
-            _configuration = configuration;
+            _signInManager = signInManager;
+            _jwt = jwt;
+        }
+
+       
+        [HttpPost("login")]
+        public async Task<IActionResult> Login([FromBody] UserLoginDTO model)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest("Invalid payload");
+
+            var user = await _userManager.FindByEmailAsync(model.Email);
+            if (user is null)
+                return Unauthorized();
+
+            var valid = await _userManager.CheckPasswordAsync(user, model.Password);
+            if (!valid)
+                return Unauthorized();
+
+            var (token, expires) = await _jwt.BuildTokenAsync(user);
+            return Ok(new TokenDTO { Token = token, Expiration = expires });
         }
 
         [HttpPost("register")]
-        [AllowAnonymous]
-        public async Task<IActionResult> Register(UserRegisterDTO model)
+        public async Task<IActionResult> Register([FromBody] UserRegisterDTO model)
         {
-            var user = new ApplicationUser { UserName = model.Email, Email = model.Email };
+            if (!ModelState.IsValid)
+                return BadRequest("Invalid payload");
+
+            var user = new ApplicationUser
+            {
+                Email = model.Email,
+                UserName = model.Email
+            };
+
             var result = await _userManager.CreateAsync(user, model.Password);
-            if (!result.Succeeded) return BadRequest(result.Errors);
-            return Ok();
-        }
+            if (!result.Succeeded)
+                return BadRequest(string.Join("; ", result.Errors.Select(e => e.Description)));
 
-        [HttpPost("login")]
-        [AllowAnonymous]
-        public async Task<ActionResult<TokenDTO>> Login(UserLoginDTO model)
-        {
-            var user = await _userManager.FindByEmailAsync(model.Email);
-            if (user == null) return Unauthorized();
 
-            var ok = await _userManager.CheckPasswordAsync(user, model.Password);
-            if (!ok) return Unauthorized();
-
-            var token = BuildToken(user.Email!);
-            return Ok(token);
-        }
-
-        private TokenDTO BuildToken(string email)
-        {
-            var jwt = _configuration.GetSection("Jwt");
-            var claims = new List<Claim> { new Claim(ClaimTypes.Email, email) };
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt["Key"]!));
-            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-            var expiration = DateTime.UtcNow.AddMinutes(double.Parse(jwt["ExpiresInMinutes"]!));
-
-            var token = new JwtSecurityToken(
-                issuer: jwt["Issuer"],
-                audience: jwt["Audience"],
-                claims: claims,
-                expires: expiration,
-                signingCredentials: creds);
-
-            return new TokenDTO { Token = new JwtSecurityTokenHandler().WriteToken(token), Expiration = expiration };
+            var (token, expires) = await _jwt.BuildTokenAsync(user);
+            return Ok(new TokenDTO { Token = token, Expiration = expires });
         }
     }
 }

@@ -1,22 +1,52 @@
-﻿<nav class="flex-column">
+﻿@using global::Employees.Frontend.Services
+@inject TokenService TokenService
+
+<nav class="flex-column">
     <div class="nav-item px-3">
         <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
             Home
         </NavLink>
     </div>
-    <div class="nav-item px-3">
-        <NavLink class="nav-link" href="counter">
-            Counter
-        </NavLink>
-    </div>
-    <div class="nav-item px-3">
-        <NavLink class="nav-link" href="employees">
-            Employees
-        </NavLink>
-    </div>
-    <div class="nav-item px-3">
-        <NavLink class="nav-link" href="login">
-            Login
-        </NavLink>
-    </div>
+
+    @* Solo visible si está logueado *@
+    @if (!string.IsNullOrEmpty(TokenService.Token))
+    {
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="employees">
+                Employees
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="profile">
+                Perfil
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="change-password">
+                Cambiar contraseña
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="logout">
+                Logout
+            </NavLink>
+        </div>
+    }
+    else
+    {
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="register">
+                Registro
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="login">
+                Login
+            </NavLink>
+        </div>
+    }
 </nav>

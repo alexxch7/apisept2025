@@ -1,10 +1,11 @@
-﻿using Microsoft.AspNetCore.Identity;
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 
-namespace Employees.Backend.Entities
+namespace Employees.Shared.DTOs
 {
-    public class ApplicationUser : IdentityUser
+    public class UserDTO
     {
+        public string Id { get; set; } = null!;
+
         [Display(Name = "Documento")]
         [MaxLength(20)]
         [Required]
@@ -25,9 +26,16 @@ namespace Employees.Backend.Entities
         [Required]
         public string Address { get; set; } = null!;
 
+        [Display(Name = "Teléfono")]
+        [MaxLength(20)]
+        public string? PhoneNumber { get; set; }
+
         [Display(Name = "Foto")]
         public string? Photo { get; set; }
 
-        public string FullName => $"{FirstName} {LastName}";
+        [Display(Name = "Email")]
+        [Required]
+        [EmailAddress]
+        public string Email { get; set; } = null!;
     }
 }
